@@ -111,3 +111,5 @@ class Bundler {
     await writeFile(path.join(dir, file), result);
   }
 }
+
+export default Bundler;
