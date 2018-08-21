@@ -15,24 +15,38 @@ const babyParser = require('@babel/parser');
 
 class Bundler {
   constructor(entryFilePath) {
-    this.entryFilePath = entryFilePath;
+    this.entryFiles = [entryFilePath];
     this.assetGraph = new Map();
     this.processQueue = [];
+    this.babelConfig = {
+      presets: [
+        [
+          '@babel/env',
+          {
+            targets: { node: 'current' }
+          }
+        ]
+      ]
+    };
   }
 
   async bundle(fileName) {
     await this.init();
-    await this.createGraph();
+    await this.createGraph(this.entryFiles[0]);
     await this.packageAssets(fileName);
+    console.log(chalk.green('success'));
   }
 
   async init() {
     const babelConfigPath = await findUp('.babelrc');
-    this.babelConfig = JSON.parse(await readFile(babelConfigPath));
+    if (babelConfigPath) {
+      this.babelConfig = JSON.parse(await readFile(babelConfigPath));
+    }
   }
 
   async createAsset(filePath) {
-    const fileContent = await readFile(filePath);
+    console.log(filePath);
+    const fileContent = await readFile(filePath, 'utf8');
     const plugins = this.babelConfig.plugins || [];
     const presets = this.babelConfig.presets || [];
     const ast = babyParser.parse(fileContent, {
@@ -46,7 +60,7 @@ class Bundler {
         deps.push(node.source.value);
       }
     });
-    const code = babel.transformFromAst(ast, null, {
+    const { code } = babel.transformFromAst(ast, null, {
       plugins,
       presets
     });
@@ -67,14 +81,14 @@ class Bundler {
     for (const asset of this.processQueue) {
       const depMap = {};
       const dir = path.dirname(asset.filePath);
-      Promise.all(
+      await Promise.all(
         asset.deps.map(async dep => {
           const depPath = resolve.sync(dep, {
             basedir: dir
           });
           const depAsset =
-            this.assetGraph.get(depPath) || (await this.createAsset());
-          depMap[dep] = depAsset;
+            this.assetGraph.get(depPath) || (await this.createAsset(depPath));
+          depMap[dep] = depAsset.id;
           this.processQueue.push(depAsset);
         })
       );
@@ -85,25 +99,27 @@ class Bundler {
   async packageAssets(fileName) {
     let modules = '';
     this.assetGraph.forEach(asset => {
-      modules += `${asset.id}:[
+      modules += `'${asset.id}':[
         function(require, module, exports) {
           ${asset.code}
-        }
-      ],
-      ${JSON.stringify(asset.depMap)}`;
+        },
+        ${JSON.stringify(asset.depMap)},
+      ],`;
     });
-    const result = `(function(modules) {
+    const result = `(function(modules, entry) {
       function require(id) {
         const [fn, mapping] = modules[id]
         function localRequire(name) {
-          return mapping[name]
+          return require(mapping[name])
         }
         const module = { exports: {} }
-        fn(localRquire, module, module.exports)
-        return modules.exports
+        fn(localRequire, module, module.exports)
+        return module.exports
       }
-      require(0)
-    })(${modules})`;
+      for (let i = 0; i < entry.length; i++) {
+        require(entry[i])
+      }
+    })({${modules}}, ${JSON.stringify(this.entryFiles)})`;
     const dir = path.dirname(fileName) || 'dist';
     let file = 'bundle.js';
     if (path.extname(fileName) === '.js') file = path.basename(fileName);

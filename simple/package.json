@@ -4,5 +4,17 @@
   "main": "index.js",
   "license": "MIT",
   "private": true,
-  "bin": "cli.js"
+  "bin": "cli.js",
+  "dependencies": {
+    "@babel/core": "^7.0.0-rc.1",
+    "@babel/parser": "^7.0.0-rc.1",
+    "@babel/preset-env": "^7.0.0-rc.1",
+    "@babel/register": "^7.0.0-rc.1",
+    "@babel/traverse": "^7.0.0-rc.1",
+    "chalk": "^2.4.1",
+    "commander": "^2.17.1",
+    "find-up": "^3.0.0",
+    "mkdirp": "^0.5.1",
+    "resolve": "^1.8.1"
+  }
 }
