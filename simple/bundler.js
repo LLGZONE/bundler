@@ -34,7 +34,7 @@ class Bundler {
     await this.init();
     await this.createGraph(this.entryFiles[0]);
     await this.packageAssets(fileName);
-    console.log(chalk.green('success'));
+    console.log(chalk.green('Finish bundle'));
   }
 
   async init() {
@@ -45,7 +45,6 @@ class Bundler {
   }
 
   async createAsset(filePath) {
-    console.log(filePath);
     const fileContent = await readFile(filePath, 'utf8');
     const plugins = this.babelConfig.plugins || [];
     const presets = this.babelConfig.presets || [];
